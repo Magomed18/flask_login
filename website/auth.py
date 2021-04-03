@@ -1,12 +1,13 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
 from .models import User
 from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired
 from . import db
 from flask_login import login_user, login_required, logout_user, current_user
-
-
+from flask_mail import Mail, Message
+from .__init__ import mail
 auth = Blueprint('auth', __name__)
-
+s = URLSafeTimedSerializer('trivialthing')
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
@@ -55,12 +56,27 @@ def sign_up():
         elif len(password1) < 7:
             flash('Password must be at least 7 characters.', category='error')
         else:
-            new_user = User(email=email, first_name=first_name, password=generate_password_hash(
+            token = s.dumps(email, salt='email-confirm')
+            new_user = User(email=email, first_name=first_name, confirmed=True, password=generate_password_hash(
                 password1, method='sha256'))
+
             db.session.add(new_user)
             db.session.commit()
+
+            msg = Message('Confirm Email', sender='magaa600@gmail.com', recipients=[email])
+            link = url_for('auth.confirm_email', token=token, _external=True)
+            msg.body = f'Your link is {link}'
+            mail.send(msg)
+
             login_user(new_user, remember=True)
             flash('Account created!', category='success')
             return redirect(url_for('views.home'))
 
     return render_template("sign_up.html", user=current_user)
+
+
+@auth.route('/confirm_email/<token>')
+def confirm_email(token):
+    email = s.loads(token, salt='email-confirm', max_age=3600)
+    return 'toke works!'
+    
