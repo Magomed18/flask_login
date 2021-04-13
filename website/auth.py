@@ -2,10 +2,12 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for
 from .models import User
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired
-from . import db
+from . import db, mail
 from flask_login import login_user, login_required, logout_user, current_user
-from flask_mail import Mail, Message
-from .__init__ import mail
+from website import create_app
+from flask_mail import Message
+
+
 auth = Blueprint('auth', __name__)
 s = URLSafeTimedSerializer('trivialthing')
 
@@ -57,26 +59,35 @@ def sign_up():
             flash('Password must be at least 7 characters.', category='error')
         else:
             token = s.dumps(email, salt='email-confirm')
-            new_user = User(email=email, first_name=first_name, confirmed=True, password=generate_password_hash(
+            new_user = User(email=email, first_name=first_name, confirmed=False, password=generate_password_hash(
                 password1, method='sha256'))
 
             db.session.add(new_user)
             db.session.commit()
 
-            msg = Message('Confirm Email', sender='magaa600@gmail.com', recipients=[email])
-            link = url_for('auth.confirm_email', token=token, _external=True)
-            msg.body = f'Your link is {link}'
-            mail.send(msg)
-
             login_user(new_user, remember=True)
             flash('Account created!', category='success')
-            return redirect(url_for('views.home'))
+
+            confirm_url = url_for('auth.activate', token=token, _external=True)
+            msg = Message('Confirm Email', sender='magaa600@gmail.com', recipients=[email])
+            msg.body = 'Follow the link in order to confirm your email'
+            msg.html = render_template('activate.html',confirm_url=confirm_url)
+            mail.send(msg)                        
 
     return render_template("sign_up.html", user=current_user)
 
 
-@auth.route('/confirm_email/<token>')
-def confirm_email(token):
-    email = s.loads(token, salt='email-confirm', max_age=3600)
-    return 'toke works!'
+@auth.route('/activate/<token>')
+
+def activate(token):
+    
+    recived_mail = s.loads(token, salt='email-confirm', max_age=3600)
+
+    user = User.query.filter_by(email=email).first_or_404()
+
+    user.confirmed = True
+    db.session.add(user)
+    db.session.commit()
+    flash('You have confirmed your account. Thanks!', 'success')
+    return redirect(url_for("activate.html", user=current_user))
     
