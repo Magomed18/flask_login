@@ -6,7 +6,7 @@ from flask_mail import Mail, Message
 
 db = SQLAlchemy()
 DB_NAME = "database.db"
-
+mail = Mail()
 
 def create_app():
     app = Flask(__name__)
@@ -14,7 +14,6 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_NAME}'
     db.init_app(app)
     app.config.from_pyfile('config.cfg')
-    mail = Mail(app)
     mail.init_app(app)
     from .views import views
     from .auth import auth

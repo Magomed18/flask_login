@@ -17,14 +17,17 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
 
-        user = User.query.filter_by(email=email).first()
+        user = User.query.filter_by(email=email).first_or_404()
         if user:
-            if check_password_hash(user.password, password):
-                flash(f'Hello {user.first_name}!', category='success')
-                login_user(user, remember=True)
-                return redirect(url_for('views.home'))
+            if user.confirmed:
+                if check_password_hash(user.password, password):
+                    flash(f'Hello {user.first_name}!', category='success')
+                    login_user(user, remember=True)
+                    return redirect(url_for('views.home'))
+                else:
+                    flash('Incorrect password, try again.', category='error')
             else:
-                flash('Incorrect password, try again.', category='error')
+                flash('Email is yet to be confirmed! Please confirm email', 'error')
         else:
             flash('Email does not exist.', category='error')
 
@@ -68,8 +71,8 @@ def sign_up():
             login_user(new_user, remember=True)
             flash('Account created!', category='success')
 
-            confirm_url = url_for('auth.activate', token=token, _external=True)
             msg = Message('Confirm Email', sender='magaa600@gmail.com', recipients=[email])
+            confirm_url = url_for('auth.activate', token=token, _external=True)
             msg.body = 'Follow the link in order to confirm your email'
             msg.html = render_template('activate.html',confirm_url=confirm_url)
             mail.send(msg)                        
@@ -81,7 +84,7 @@ def sign_up():
 
 def activate(token):
     
-    recived_mail = s.loads(token, salt='email-confirm', max_age=3600)
+    email = s.loads(token, salt='email-confirm', max_age=3600)
 
     user = User.query.filter_by(email=email).first_or_404()
 
@@ -89,5 +92,5 @@ def activate(token):
     db.session.add(user)
     db.session.commit()
     flash('You have confirmed your account. Thanks!', 'success')
-    return redirect(url_for("activate.html", user=current_user))
+    return redirect(url_for("views.home", user=current_user))
     
