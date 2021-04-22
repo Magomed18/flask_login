@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, flash, jsonify
 from flask_login import login_required, current_user
-from .models import Note
+from .models import Note, User
 from . import db
 import json
 
@@ -22,6 +22,12 @@ def home():
             flash('Note added!', category='success')
 
     return render_template("home.html", user=current_user)
+
+@views.route('/profile', methods=['GET'])
+@login_required
+def profile():
+    user = User.query.filter_by(email=current_user.id).first()
+    return render_template("profile.html", user=current_user)    
 
 
 @views.route('/delete-note', methods=['POST'])
